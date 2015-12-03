@@ -63,8 +63,6 @@ class UITestConversationsApiApp < Sinatra::Base
   end
 
   put '/conversations/:id' do
-    require 'byebug'
-    byebug
     conversation = Conversation.by_id(params[:id]).first
     conversation_data = (JSON.parse request.body.read)
     if conversation.nil?
