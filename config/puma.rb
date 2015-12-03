@@ -144,7 +144,7 @@ end
 
 # Additional text to display in process listing
 #
-tag 'Laughing Gas API'
+tag 'Conversations API'
 
 # Change the default timeout of workers
 #
