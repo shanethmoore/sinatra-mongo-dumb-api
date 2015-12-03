@@ -10,8 +10,8 @@ require 'rake'
 require 'json'
 require 'mongoid'
 require 'rack/cache'
-require_relative 'config/initializers/mongois'
-
+require_relative 'app/models/conversation'
+require_relative 'config/initializers/mongoid'
 
 class UITestConversationsApiApp < Sinatra::Base
 
@@ -29,16 +29,6 @@ class UITestConversationsApiApp < Sinatra::Base
     content_type 'application/json'
   end
 
-  not_found do
-    status 404
-    body serialize_data(error: 'Not Found')
-  end
-
-  error do
-    status 500
-    return serialize_data(error: error_message)
-  end
-
   helpers do
     def serialize_data(obj)
       JSON.dump(obj)
@@ -46,9 +36,10 @@ class UITestConversationsApiApp < Sinatra::Base
   end
 
   get '/conversations' do
-    cache_control :public, max_age: 10 # 30 seconds
     conversations = Conversation.all.map do |conversation|
-      JSON.dump(conversation)
+      hash = Hash[conversation.attributes]
+      hash['_id'] = hash['_id'].to_s
+      hash
     end
     if conversations.count > 0
       status 200
@@ -59,36 +50,59 @@ class UITestConversationsApiApp < Sinatra::Base
     end
   end
 
-  put '/conversation/:id/:conversation_data' do
+  post '/conversations/new' do
+    conversation = Conversation.new
+    conversation_data = (JSON.parse request.body.read)
+    conversation.data = conversation_data
+    if conversation.save
+      status 201
+    else
+      status 400
+      body serialize_data("could not save conversation #{conversation.errors}")
+    end
+  end
+
+  put '/conversations/:id' do
+    require 'byebug'
+    byebug
     conversation = Conversation.by_id(params[:id]).first
-    if conversation.nil?  status 404
+    conversation_data = (JSON.parse request.body.read)
+    if conversation.nil?
+      status 404
       body serialize_data("No conversation found for it #{params[:id]}")
       return
     else
-      conversation.data = params[:conversation_data]
+      conversation.data = conversation_data
       if conversation.save
         status 200
       else
-        status 500
+        status 400
         body serialize_data("could not save conversation #{conversation.errors}")
       end
     end
   end
 
-  post '/conversation/:conversation_data' do
-    conversation = Conversation.new
-
-    if conversation.save
-      status 201
-    end
-    body serialize_data("No conversation found for it #{params[:id]}")
-  end
-
-  delete '/conversation/:id' do
-    conv = Conversation.by_id(params[:id]).first
-    if conv.nil?
+  delete '/conversations/:id' do
+    conversation = Conversation.by_id(params[:id]).first
+    if conversation.nil?
       status 404
       return serialize_data("No conversation found for it #{params[:id]}")
+    else
+      conversation.destroy
     end
+  end
+
+  delete '/conversations/delete_all' do
+    count = Conversation.count
+    Conversation.destroy_all
+    status 200
+    body "OK: #{count}"
+  end
+
+  get '/conversations/delete_all' do
+    count = Conversation.count
+    Conversation.destroy_all
+    status 200
+    body "OK: #{count}"
   end
 end
